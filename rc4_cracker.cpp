@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
             }
             else 
             {
-                thread_id[i] = -1;
+                thread_id[i] = NUM_THREADS;
                 tfinished++;
             }
         }

@@ -65,7 +65,7 @@ void dump( POLE::Storage* storage, char* stream_name )
   if( stream->fail() ) return;
   
   // std::cout << "Size: " << stream->size() << " bytes" << std::endl;
-  unsigned char buffer[512];
+  unsigned char buffer[16];
   for( ;; )
   {
       unsigned read = stream->read( buffer, sizeof( buffer ) );
