@@ -8,13 +8,10 @@ ALL = rc4_cracker poledump
 
 all: clean $(ALL)
 
-rc4_cracker: rc4_cracker.o util.o pole.o
+rc4_cracker: rc4_cracker.o pole.o
 	$(CC) -o $@ $^ $(LIBS)
 
-rc4_cracker.o: rc4_cracker.cpp util.h pole.h
-	$(CC) $(CFLAGS) -c $< $(LIBS)
-
-util.o: util.cpp util.h
+rc4_cracker.o: rc4_cracker.cpp pole.h
 	$(CC) $(CFLAGS) -c $< $(LIBS)
 
 poledump: poledump.o pole.o
