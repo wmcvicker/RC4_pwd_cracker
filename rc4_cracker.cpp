@@ -15,7 +15,7 @@
 
 #define NUM_THREADS 8
 
-#define SEARCH_BASE (FORTY_BIT_MAX >> 1) // Search the upper half
+#define SEARCH_BASE 0
 #define FORTY_BIT_MAX 1099511627776
 #define ENCRYPTION_BIT 0x01
 #define READ_ONLY_BIT 0x08
@@ -84,32 +84,18 @@ inline void ksa(uint8_t *key, int keylen, state_t *key_state) {
     key_state->i = 0;
     key_state->j = 0;
 
-    while (i < 256) {
+    for (i = 0; i < 256; i += 4) {
         S[i]   = i;
         S[i+1] = i + 1;
         S[i+2] = i + 2;
         S[i+3] = i + 3;
-        
-        i += 4;
     }
 
-    i = 0;
-    while (i < 256) {
+    for (i = 0; i < 256; i++) {
         // We are assuming keylen is a power of two
         //  -- in the rc4_cracker.cpp file keylen is always 16
         j = (j + S[i] + key[i & (keylen - 1)/*% keylen*/]) & 255; //% 256;
         swap_bytes(S, i, j);
-
-        j = (j + S[i+1] + key[(i+1) & (keylen - 1)/*% keylen*/]) & 255; //% 256;
-        swap_bytes(S, i+1, j);
-
-        j = (j + S[i+2] + key[(i+2) & (keylen - 1)/*% keylen*/]) & 255; //% 256;
-        swap_bytes(S, i+2, j);
-
-        j = (j + S[i+3] + key[(i+3) & (keylen - 1)/*% keylen*/]) & 255; //% 256;
-        swap_bytes(S, i+3, j);
-
-        i += 4;
     }
 }
 
@@ -148,9 +134,7 @@ void decrypt_doc(POLE::Storage *storage, char *filename, uint64_t key_uint) {
     state_t key_state;
     uint8_t pwdHash[16] = {0};
 
-    for (uint8_t b = 0; b < 5; b++) {
-        key[4-b] = (key_uint >> (8*b)) & 0xff;
-    }
+    memcpy(key, reinterpret_cast<uint8_t *>(&key_uint), 5);
 
     std::list<std::string> d_streams;
     d_streams.push_back("/1Table");
@@ -208,37 +192,41 @@ void decrypt_doc(POLE::Storage *storage, char *filename, uint64_t key_uint) {
 
 void *crack_range(void *ptr) {
     thread_data_t *tdata = (thread_data_t *) ptr;
-    uint64_t k = 0;
-    uint8_t key[9] = {0};
-    uint8_t key_hash[16] = {0};
-    uint8_t tmp_hash[16] = {0};
+    uint64_t k                  = 0;
+    uint8_t no_match            = 0;
+    uint8_t key[9]              = {0};
+    uint8_t key_hash[16]        = {0};
+    uint8_t tmp_hash[16]        = {0};
+    uint8_t d_verifier[16]      = {0};
+    uint8_t d_verifier_hash[16] = {0};
     state_t key_state;
 
-    uint8_t d_verifier[16] = {0};
-    uint8_t d_verifier_hash[16] = {0};
+    // Allow the thread to be cancelled immediately
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-    uint8_t no_match = 0;
     for (k = tdata->start_ndx; k < tdata->end_ndx; k++) {
-        no_match = 0;
+        no_match = 0; // reset match flag
 
-        // Test document key: CC D7 F8 F6 95
-        //key[0] = 0xcc;
-        //key[1] = 0xd7;
-        //key[2] = 0xf8;
-        //key[3] = 0xf6;
-        //key[4] = 0x95;
-        for (uint8_t b = 0; b < 5; b++) {
-            key[4-b] = (k >> (8*b)) & 0xff;
-        }
+        // Convert to an array to use for the hash
+        //memcpy(key, reinterpret_cast<uint8_t *>(&k), 5);
+        uint8_t *tmp_array = reinterpret_cast<uint8_t *>(&k);
+        key[0] = tmp_array[0];
+        key[1] = tmp_array[1];
+        key[2] = tmp_array[2];
+        key[3] = tmp_array[3];
+        key[4] = tmp_array[4];
 
         // Calculate the key state
         MD5((uint8_t *) key, 9, key_hash);
         ksa(key_hash, 16, &key_state);
 
+        // Decrypt the header verifier and hash
         prga(tdata->header.e_verifier,      16, &key_state, d_verifier);
         prga(tdata->header.e_verifier_hash, 16, &key_state, d_verifier_hash);
         MD5((uint8_t *) d_verifier, 16, tmp_hash);
 
+        // Compare the decrpyted hash with the hashed decrpyted verifier
         for (uint8_t b = 0; b < 16; b++) {
             if (d_verifier_hash[b] != tmp_hash[b]) {
                 no_match = 1;
@@ -246,6 +234,7 @@ void *crack_range(void *ptr) {
             }
         }
 
+        // Stop we a match is found
         if (!no_match)
             break;
     }
@@ -255,10 +244,9 @@ void *crack_range(void *ptr) {
 
         std::cout << "Found a match: ";
         for (uint8_t b = 0; b < 5; b++) {
-            key[4-b] = (k >> (8*b)) & 0xff;
-        }
-        for (uint8_t b = 0; b < 5; b++) 
+            key[b] = (k >> (8*b)) & 0xff;
             printf("%02x ", key[b]);
+        }
         printf("(%lu)\n", k);
     } else {
         return (void *) 1;
@@ -288,7 +276,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Test document key: CC D7 F8 F6 95
-    //decrypt_doc(storage, filename, 0xccd7f8f695);
+    //decrypt_doc(storage, filename, 0x95f6f8d7cc);
     //return 0;
 
     ole_header_t header = get_header(storage);
@@ -327,6 +315,7 @@ int main(int argc, char *argv[]) {
             // Successful
 
             if (retval[0] == 0) {
+                fprintf(stderr, "Thread found solution...");
 
                 // kill the rest of the threads
                 for (int j = 0; j < NUM_THREADS; j++) {
@@ -357,6 +346,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    fprintf(stderr, "Decrypting doc now");
     decrypt_doc(storage, filename, tdata[i].ret_val);
     free(tdata);
 
