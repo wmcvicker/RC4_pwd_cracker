@@ -14,6 +14,8 @@
 #include "pole.h"
 
 #define NUM_THREADS 8
+
+#define SEARCH_BASE (FORTY_BIT_MAX >> 1) // Search the upper half
 #define FORTY_BIT_MAX 1099511627776
 #define ENCRYPTION_BIT 0x01
 #define READ_ONLY_BIT 0x08
@@ -299,8 +301,8 @@ int main(int argc, char *argv[]) {
 
     for (uint64_t i = 0; i < NUM_THREADS; i++) {
         memcpy(&(tdata[i].header), &header, sizeof(header));
-        tdata[i].start_ndx = (FORTY_BIT_MAX / NUM_THREADS) * i;
-        tdata[i].end_ndx = tdata[i].start_ndx + (FORTY_BIT_MAX / NUM_THREADS);
+        tdata[i].start_ndx = SEARCH_BASE + ((FORTY_BIT_MAX - SEARCH_BASE) / NUM_THREADS) * i;
+        tdata[i].end_ndx = tdata[i].start_ndx + ((FORTY_BIT_MAX - SEARCH_BASE) / NUM_THREADS);
         tdata[i].ret_val = 0;
 
         pthread_create(&thread_id[i], NULL, crack_range, (void *) &tdata[i]);
