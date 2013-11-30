@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <iostream>
-#include <openssl/md5.h>
 
 #include <pthread.h>
 
 #include <string.h>
 
 #include "pole.h"
+#include "md5.h"
 
 #define NUM_THREADS 8
 
@@ -161,7 +161,7 @@ void decrypt_doc(POLE::Storage *storage, char *filename, uint64_t key_uint) {
             }
 
             memset(pwdHash, 0, 16);
-            MD5((uint8_t *) key, 9, pwdHash);
+            md5((uint8_t *) key, 9, pwdHash);
             ksa((uint8_t *) pwdHash, 16, &key_state);
             prga((uint8_t *) buffer, read, &key_state, d_buffer);
 
@@ -218,13 +218,13 @@ void *crack_range(void *ptr) {
         key[4] = tmp_array[4];
 
         // Calculate the key state
-        MD5((uint8_t *) key, 9, key_hash);
+        md5((uint8_t *) key, 9, key_hash);
         ksa(key_hash, 16, &key_state);
 
         // Decrypt the header verifier and hash
         prga(tdata->header.e_verifier,      16, &key_state, d_verifier);
         prga(tdata->header.e_verifier_hash, 16, &key_state, d_verifier_hash);
-        MD5((uint8_t *) d_verifier, 16, tmp_hash);
+        md5((uint8_t *) d_verifier, 16, tmp_hash);
 
         // Compare the decrpyted hash with the hashed decrpyted verifier
         for (uint8_t b = 0; b < 16; b++) {
@@ -276,8 +276,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Test document key: CC D7 F8 F6 95
-    //decrypt_doc(storage, filename, 0x95f6f8d7cc);
-    //return 0;
+    decrypt_doc(storage, filename, 0x95f6f8d7cc);
+    return 0;
 
     ole_header_t header = get_header(storage);
 
