@@ -11,45 +11,8 @@
 #include <string.h>
 
 #include "pole.h"
+#include "rc4_cracker.h"
 #include "md5.h"
-
-#define NUM_THREADS 8
-
-#define SEARCH_BASE 0
-#define FORTY_BIT_MAX 1099511627776
-#define ENCRYPTION_BIT 0x01
-#define READ_ONLY_BIT 0x08
-#define WORD_DOCUMENT_HEADER_SIZE 68
-
-#define swap_bytes(data, i, j) {\
-    int tmp = (data)[(i)]; \
-    (data)[(i)] = (data)[(j)]; \
-    (data)[(j)] = tmp;     \
-}
-
-
-typedef struct ole_header {
-    unsigned short major_v;
-    unsigned short minor_v;
-
-    uint8_t salt[16];
-    uint8_t e_verifier[16];
-    uint8_t e_verifier_hash[16];
-} ole_header_t; 
-
-typedef struct thread_data {
-    ole_header_t header;
-    uint64_t start_ndx;
-    uint64_t end_ndx;
-    uint64_t ret_val;
-} thread_data_t;
-
-
-typedef struct state {
-    uint8_t S[256];
-    uint8_t i;
-    uint8_t j;
-} state_t;
 
 
 inline uint8_t *prga(uint8_t *text, int tlen, state_t *key_state, uint8_t *e_text) {
@@ -61,8 +24,8 @@ inline uint8_t *prga(uint8_t *text, int tlen, state_t *key_state, uint8_t *e_tex
         return NULL;
 
     for (int k = 0; k < tlen; k++) {
-        i = (i + 1) & 255; //% 256;
-        j = (j + S[i]) & 255; //% 256;
+        i = (i + 1); //% 256;
+        j = (j + S[i]); //% 256;
 
         swap_bytes(S, i, j);
 
@@ -76,6 +39,7 @@ inline uint8_t *prga(uint8_t *text, int tlen, state_t *key_state, uint8_t *e_tex
 }
 
 
+
 inline void ksa(uint8_t *key, int keylen, state_t *key_state) {
     uint16_t i = 0;
     uint16_t j = 0;
@@ -84,12 +48,7 @@ inline void ksa(uint8_t *key, int keylen, state_t *key_state) {
     key_state->i = 0;
     key_state->j = 0;
 
-    for (i = 0; i < 256; i += 4) {
-        S[i]   = i;
-        S[i+1] = i + 1;
-        S[i+2] = i + 2;
-        S[i+3] = i + 3;
-    }
+    memcpy(S, S_init, 256);
 
     for (i = 0; i < 256; i++) {
         // We are assuming keylen is a power of two
