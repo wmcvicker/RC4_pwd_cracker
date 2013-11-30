@@ -276,8 +276,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Test document key: CC D7 F8 F6 95
-    decrypt_doc(storage, filename, 0x95f6f8d7cc);
-    return 0;
+    //decrypt_doc(storage, filename, 0x95f6f8d7cc);
+    //return 0;
 
     ole_header_t header = get_header(storage);
 
