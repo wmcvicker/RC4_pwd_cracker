@@ -1,7 +1,7 @@
 # Makefile for RC4 cracker
 
 CC = g++
-CFLAGS = -Wall -c -Werror -std=c++11 -O2
+CFLAGS = -Wall -c -Werror -O2
 LIBS = -lpthread 
 
 ALL = rc4_cracker poledump

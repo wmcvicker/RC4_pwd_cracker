@@ -106,15 +106,16 @@ ole_header_t get_header(POLE::Storage *storage) {
 
     POLE::Stream *stream = new POLE::Stream(storage, stream_name);
     if (!stream)
-        return {0};
+        return header;
     if (stream->fail())
-        return {0};
+        return header;
 
     // Read in the whole header at once
     int read = stream->read((unsigned char *) &header, sizeof(header));
     if (read != sizeof(header)) {
         std::cerr << "Error reading header!" << std::endl;
-        return {0};
+        memset(&header, 0, sizeof(header));
+        return header;
     }
     
     delete stream;
